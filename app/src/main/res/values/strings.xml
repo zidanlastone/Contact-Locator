@@ -5,7 +5,7 @@
     <string name="hint_address">Address</string>
     <string name="hint_contact">Contact</string>
     <string name="hint_maps_link">Google Maps Link</string>
-    <string name="btn_add">Add Item</string>
+    <string name="btn_add">Add Contact</string>
     <string name="btn_open_maps">Open Maps</string>
     <string name="label_id">ID: </string>
     <string name="label_name">Name: </string>
@@ -24,4 +24,5 @@
     <string name="btn_login">Login</string>
     <string name="btn_register">Don\'t have an account? Register</string>
     <string name="btn_logout">Logout</string>
+    <string name="btn_edit">Edit Contact</string>
 </resources>

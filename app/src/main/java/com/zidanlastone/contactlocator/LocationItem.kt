@@ -4,7 +4,7 @@ import com.google.firebase.firestore.Exclude
 import java.io.Serializable
 
 data class LocationItem(
-    val id: Int = 0,
+    val id: Long = 0,
     val name: String = "",
     val address: String? = null,
     val contact: String? = null,

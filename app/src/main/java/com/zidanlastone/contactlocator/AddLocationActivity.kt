@@ -32,6 +32,7 @@ class AddLocationActivity : AppCompatActivity() {
     private var photoUri: Uri? = null
     private var latitude: Double? = null
     private var longitude: Double? = null
+    private var existingItem: LocationItem? = null
 
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) {
@@ -86,12 +87,28 @@ class AddLocationActivity : AppCompatActivity() {
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
+        existingItem = intent.getSerializableExtra("location_item") as? LocationItem
+
         val etName = findViewById<EditText>(R.id.etName)
         val etAddress = findViewById<EditText>(R.id.etAddress)
         val etContact = findViewById<EditText>(R.id.etContact)
         val btnSave = findViewById<Button>(R.id.btnSave)
         val btnTakePicture = findViewById<Button>(R.id.btnTakePicture)
         val btnGetLocation = findViewById<Button>(R.id.btnGetLocation)
+
+        // If editing, populate fields
+        existingItem?.let { item ->
+            etName.setText(item.name)
+            etAddress.setText(item.address)
+            etContact.setText(item.contact)
+            item.imageUri?.let { uriStr ->
+                photoUri = Uri.parse(uriStr)
+                findViewById<ImageView>(R.id.ivPicture).load(photoUri)
+            }
+            latitude = item.latitude
+            longitude = item.longitude
+            btnSave.text = "Update Item"
+        }
 
         // If we have a photoUri, load it (in case of orientation change)
         photoUri?.let { findViewById<ImageView>(R.id.ivPicture).load(it) }

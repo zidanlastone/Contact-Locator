@@ -84,8 +84,16 @@
                 android:id="@+id/btnDetailWhatsApp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
                 android:text="@string/btn_whatsapp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                style="@style/Widget.Material3.Button.OutlinedButton" />
+
+            <Button
+                android:id="@+id/btnDetailEdit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_edit"
+                style="@style/Widget.Material3.Button.TonalButton" />
 
         </LinearLayout>
     </ScrollView>

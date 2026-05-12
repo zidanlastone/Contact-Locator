@@ -8,13 +8,48 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import android.util.Log
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import coil.load
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 class LocationDetailActivity : AppCompatActivity() {
+
+    private var currentItem: LocationItem? = null
+    private val db = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
+
+    private val editLocationLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val data = result.data
+            val name = data?.getStringExtra("name") ?: ""
+            val address = data?.getStringExtra("address")
+            val contact = data?.getStringExtra("contact")
+            val imageUri = data?.getStringExtra("imageUri")
+            val latitude = data?.getDoubleExtra("latitude", 0.0)
+            val longitude = data?.getDoubleExtra("longitude", 0.0)
+
+            currentItem?.let { item ->
+                val updatedItem = item.copy(
+                    name = name,
+                    address = address,
+                    contact = contact,
+                    imageUri = imageUri,
+                    latitude = if (latitude != 0.0) latitude else null,
+                    longitude = if (longitude != 0.0) longitude else null
+                )
+                updateInFirestore(updatedItem)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -25,8 +60,11 @@ class LocationDetailActivity : AppCompatActivity() {
             insets
         }
 
-        val item = intent.getSerializableExtra("location_item") as? LocationItem
+        currentItem = intent.getSerializableExtra("location_item") as? LocationItem
+        displayItem(currentItem)
+    }
 
+    private fun displayItem(item: LocationItem?) {
         if (item != null) {
             val ivPicture = findViewById<ImageView>(R.id.ivDetailPicture)
             val tvId = findViewById<TextView>(R.id.tvDetailId)
@@ -37,8 +75,10 @@ class LocationDetailActivity : AppCompatActivity() {
             val tvLongitude = findViewById<TextView>(R.id.tvDetailLongitude)
             val btnOpenMaps = findViewById<Button>(R.id.btnDetailOpenMaps)
             val btnWhatsApp = findViewById<Button>(R.id.btnDetailWhatsApp)
+            val btnEdit = findViewById<Button>(R.id.btnDetailEdit)
 
             if (item.imageUri != null) {
+                ivPicture.visibility = View.VISIBLE
                 ivPicture.load(item.imageUri)
             } else {
                 ivPicture.visibility = View.GONE
@@ -64,6 +104,8 @@ class LocationDetailActivity : AppCompatActivity() {
             }
             
             if (item.latitude != null && item.longitude != null) {
+                tvLatitude.visibility = View.VISIBLE
+                tvLongitude.visibility = View.VISIBLE
                 tvLatitude.text = getString(R.string.label_latitude) + item.latitude
                 tvLongitude.text = getString(R.string.label_longitude) + item.longitude
                 
@@ -106,8 +148,34 @@ class LocationDetailActivity : AppCompatActivity() {
                     Toast.makeText(this, "Invalid contact number", Toast.LENGTH_SHORT).show()
                 }
             }
+
+            btnEdit.setOnClickListener {
+                val intent = Intent(this, AddLocationActivity::class.java)
+                intent.putExtra("location_item", item)
+                editLocationLauncher.launch(intent)
+            }
         } else {
             finish()
         }
+    }
+
+    private fun updateInFirestore(item: LocationItem) {
+        val userId = auth.currentUser?.uid ?: return
+        val docId = item.firebaseKey ?: return
+
+        Log.d("LocationDetail", "Attempting to update item. DocID: $docId, Name: ${item.name}, Address: ${item.address}")
+        db.collection("users").document(userId)
+            .collection("locations").document(docId)
+            .set(item)
+            .addOnSuccessListener {
+                Log.d("LocationDetail", "Update successful for DocID: $docId")
+                currentItem = item
+                displayItem(item)
+                Toast.makeText(this, "Updated successfully", Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener { e ->
+                Log.e("LocationDetail", "Update failed", e)
+                Toast.makeText(this, "Update failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 }

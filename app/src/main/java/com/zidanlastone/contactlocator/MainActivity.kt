@@ -13,18 +13,20 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import android.os.Handler
+import android.os.Looper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.CollectionReference
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.ktx.toObject
 
 class MainActivity : AppCompatActivity() {
 
-    private val fullLocationList = mutableListOf<LocationItem>()
     private val displayedList = mutableListOf<LocationItem>()
     private lateinit var adapter: LocationAdapter
     
@@ -32,7 +34,15 @@ class MainActivity : AppCompatActivity() {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
     private lateinit var locationsCollection: CollectionReference
-    private var snapshotListener: ListenerRegistration? = null
+    
+    private var lastVisible: DocumentSnapshot? = null
+    private var isLoading = false
+    private var isLastPage = false
+    private val pageSize = 20L
+    
+    private val searchHandler = Handler(Looper.getMainLooper())
+    private var searchRunnable: Runnable? = null
+    private var currentQuery = ""
 
     private val addLocationLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -48,12 +58,12 @@ class MainActivity : AppCompatActivity() {
 
             if (name.isNotEmpty()) {
                 val newItem = LocationItem(
-                    id = fullLocationList.size + 1,
+                    id = (System.currentTimeMillis() % 10000).toLong(),
                     name = name,
                     address = address,
                     contact = contact,
-                    latitude = if (latitude != 0.0) latitude else null,
-                    longitude = if (longitude != 0.0) longitude else null
+                    latitude = if (latitude != 0.0) latitude else 0.0,
+                    longitude = if (longitude != 0.0) longitude else 0.0
                 )
                 
                 if (localImageUriString != null) {
@@ -97,8 +107,27 @@ class MainActivity : AppCompatActivity() {
         }
 
         adapter = LocationAdapter(displayedList)
-        recyclerView.layoutManager = LinearLayoutManager(this)
+        val layoutManager = LinearLayoutManager(this)
+        recyclerView.layoutManager = layoutManager
         recyclerView.adapter = adapter
+
+        recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                val visibleItemCount = layoutManager.childCount
+                val totalItemCount = layoutManager.itemCount
+                val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
+
+                if (!isLoading && !isLastPage) {
+                    if ((visibleItemCount + firstVisibleItemPosition) >= totalItemCount
+                        && firstVisibleItemPosition >= 0
+                        && totalItemCount >= pageSize
+                    ) {
+                        loadMoreData()
+                    }
+                }
+            }
+        })
 
         fabAdd.setOnClickListener {
             val intent = Intent(this, AddLocationActivity::class.java)
@@ -108,63 +137,116 @@ class MainActivity : AppCompatActivity() {
         etSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                filter(s.toString())
+                val query = s.toString()
+                searchRunnable?.let { searchHandler.removeCallbacks(it) }
+                searchRunnable = Runnable {
+                    currentQuery = query
+                    resetAndLoad()
+                }
+                searchHandler.postDelayed(searchRunnable!!, 500)
             }
             override fun afterTextChanged(s: Editable?) {}
         })
         
-        loadFromFirestore()
+        loadInitialData()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        snapshotListener?.remove()
+        searchRunnable?.let { searchHandler.removeCallbacks(it) }
     }
 
-    private fun loadFromFirestore() {
-        snapshotListener = locationsCollection.addSnapshotListener { snapshot, e ->
-            if (e != null) {
-                Toast.makeText(this, "Firestore Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                return@addSnapshotListener
-            }
+    private fun resetAndLoad() {
+        lastVisible = null
+        isLastPage = false
+        displayedList.clear()
+        adapter.notifyDataSetChanged()
+        loadInitialData()
+    }
 
-            if (snapshot != null) {
-                fullLocationList.clear()
-                for (doc in snapshot.documents) {
-                    val item = doc.toObject(LocationItem::class.java)
-                    if (item != null) {
-                        fullLocationList.add(item.copy(firebaseKey = doc.id))
-                    }
-                }
-                filter(findViewById<EditText>(R.id.etSearch).text.toString())
-            }
+    private fun loadInitialData() {
+        if (isLoading) return
+        isLoading = true
+        
+        var query: Query = locationsCollection.orderBy("name")
+        
+        if (currentQuery.isNotEmpty()) {
+            query = query.startAt(currentQuery).endAt(currentQuery + "\uf8ff")
         }
+        
+        query.limit(pageSize).get()
+            .addOnSuccessListener { documents ->
+                isLoading = false
+                if (documents.isEmpty) {
+                    isLastPage = true
+                    return@addOnSuccessListener
+                }
+                
+                for (doc in documents) {
+                    val item = doc.toObject(LocationItem::class.java)
+                    item?.let { displayedList.add(it.copy(firebaseKey = doc.id)) }
+                }
+                
+                if (documents.size() < pageSize) {
+                    isLastPage = true
+                } else {
+                    lastVisible = documents.documents[documents.size() - 1]
+                }
+                adapter.notifyDataSetChanged()
+            }
+            .addOnFailureListener { e ->
+                isLoading = false
+                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun loadMoreData() {
+        if (isLoading || isLastPage) return
+        isLoading = true
+        
+        var query: Query = locationsCollection.orderBy("name")
+        
+        if (currentQuery.isNotEmpty()) {
+            query = query.startAt(currentQuery).endAt(currentQuery + "\uf8ff")
+        }
+        
+        query.startAfter(lastVisible!!).limit(pageSize).get()
+            .addOnSuccessListener { documents ->
+                isLoading = false
+                if (documents.isEmpty) {
+                    isLastPage = true
+                    return@addOnSuccessListener
+                }
+                
+                for (doc in documents) {
+                    val item = doc.toObject(LocationItem::class.java)
+                    item?.let { displayedList.add(it.copy(firebaseKey = doc.id)) }
+                }
+                
+                if (documents.size() < pageSize) {
+                    isLastPage = true
+                } else {
+                    lastVisible = documents.documents[documents.size() - 1]
+                }
+                adapter.notifyDataSetChanged()
+            }
+            .addOnFailureListener { e ->
+                isLoading = false
+                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun saveToFirestore(item: LocationItem) {
-        Log.d("MainActivity", "Attempting to save item to Firestore: ${item.name}")
+        Log.d("MainActivity", "Attempting to save item to Firestore. Name: ${item.name}, ID: ${item.id}, Address: ${item.address}")
         locationsCollection.add(item)
             .addOnSuccessListener { docRef ->
                 Log.d("MainActivity", "Successfully saved item. ID: ${docRef.id}")
                 Toast.makeText(this, "Data synced with Firestore", Toast.LENGTH_SHORT).show()
+                resetAndLoad() // Refresh list after adding
             }
             .addOnFailureListener { e ->
                 Log.e("MainActivity", "Failed to save item: ${e.message}", e)
                 Toast.makeText(this, "Firestore Sync Failed: ${e.message}", Toast.LENGTH_SHORT).show()
             }
-    }
-
-    private fun filter(query: String) {
-        val filteredList = if (query.isEmpty()) {
-            fullLocationList
-        } else {
-            fullLocationList.filter {
-                it.name.contains(query, ignoreCase = true) || 
-                it.id.toString().contains(query)
-            }
-        }
-        displayedList.clear()
-        displayedList.addAll(filteredList)
-        adapter.notifyDataSetChanged()
     }
 }

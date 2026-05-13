@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
+import android.util.Log
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
@@ -30,8 +31,8 @@ class AddLocationActivity : AppCompatActivity() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private var photoUri: Uri? = null
-    private var latitude: Double? = null
-    private var longitude: Double? = null
+    private var latitude: Double = 0.0
+    private var longitude: Double = 0.0
     private var existingItem: LocationItem? = null
 
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
@@ -62,8 +63,8 @@ class AddLocationActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putParcelable("photoUri", photoUri)
-        latitude?.let { outState.putDouble("latitude", it) }
-        longitude?.let { outState.putDouble("longitude", it) }
+        outState.putDouble("latitude", latitude)
+        outState.putDouble("longitude", longitude)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,10 +72,8 @@ class AddLocationActivity : AppCompatActivity() {
         
         if (savedInstanceState != null) {
             photoUri = savedInstanceState.getParcelable("photoUri")
-            val lat = savedInstanceState.getDouble("latitude", 0.0)
-            val lon = savedInstanceState.getDouble("longitude", 0.0)
-            if (lat != 0.0) latitude = lat
-            if (lon != 0.0) longitude = lon
+            latitude = savedInstanceState.getDouble("latitude", 0.0)
+            longitude = savedInstanceState.getDouble("longitude", 0.0)
         }
 
         enableEdgeToEdge()
@@ -92,6 +91,7 @@ class AddLocationActivity : AppCompatActivity() {
         val etName = findViewById<EditText>(R.id.etName)
         val etAddress = findViewById<EditText>(R.id.etAddress)
         val etContact = findViewById<EditText>(R.id.etContact)
+//        val etLongitude = findViewById<EditText>(R.id.etContact)
         val btnSave = findViewById<Button>(R.id.btnSave)
         val btnTakePicture = findViewById<Button>(R.id.btnTakePicture)
         val btnGetLocation = findViewById<Button>(R.id.btnGetLocation)
@@ -105,15 +105,20 @@ class AddLocationActivity : AppCompatActivity() {
                 photoUri = Uri.parse(uriStr)
                 findViewById<ImageView>(R.id.ivPicture).load(photoUri)
             }
-            latitude = item.latitude
-            longitude = item.longitude
+
+            Log.d("AddLocationActivity", "latitude: ${item.latitude}, longitude: ${item.longitude}")
+            latitude = if (item.latitude != 0.0) item.latitude!! else 0.0
+            longitude = if (item.longitude != 0.0) item.longitude!! else 0.0
             btnSave.text = "Update Item"
         }
 
-        // If we have a photoUri, load it (in case of orientation change)
+        Log.d("AddLocationActivity", "latitude: ${latitude}, longitude: ${longitude}")
+
+
         photoUri?.let { findViewById<ImageView>(R.id.ivPicture).load(it) }
-        latitude?.let { findViewById<TextView>(R.id.tvLatitude).text = "Latitude: $it" }
-        longitude?.let { findViewById<TextView>(R.id.tvLongitude).text = "Longitude: $it" }
+
+        findViewById<TextView>(R.id.tvLatitude).text  = "Latitude  : $latitude"
+        findViewById<TextView>(R.id.tvLongitude).text = "Longitude : $longitude"
 
         btnTakePicture.setOnClickListener {
             checkCameraPermissionAndOpen()
@@ -138,8 +143,8 @@ class AddLocationActivity : AppCompatActivity() {
                     resultIntent.putExtra("contact", contact)
                 }
                 resultIntent.putExtra("imageUri", photoUri?.toString())
-                resultIntent.putExtra("latitude", latitude ?: 0.0)
-                resultIntent.putExtra("longitude", longitude ?: 0.0)
+                resultIntent.putExtra("latitude", latitude)
+                resultIntent.putExtra("longitude", longitude)
                 setResult(RESULT_OK, resultIntent)
                 finish()
             } else {

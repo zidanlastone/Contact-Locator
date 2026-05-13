@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity() {
 
     private val displayedList = mutableListOf<LocationItem>()
     private lateinit var adapter: LocationAdapter
+    private lateinit var progressBar: android.widget.ProgressBar
     
     // Firestore reference
     private val db = FirebaseFirestore.getInstance()
@@ -53,17 +54,18 @@ class MainActivity : AppCompatActivity() {
             val address = data?.getStringExtra("address")
             val contact = data?.getStringExtra("contact")
             val localImageUriString = data?.getStringExtra("imageUri")
-            val latitude = data?.getDoubleExtra("latitude", 0.0)
-            val longitude = data?.getDoubleExtra("longitude", 0.0)
+            val latitude = data?.getDoubleExtra("latitude", 0.0) ?: 0.0
+            val longitude = data?.getDoubleExtra("longitude", 0.0) ?: 0.0
 
             if (name.isNotEmpty()) {
                 val newItem = LocationItem(
-                    id = (System.currentTimeMillis() % 10000).toLong(),
+                    id = (System.currentTimeMillis() % 10000),
                     name = name,
+                    nameLower = name.lowercase(),
                     address = address,
                     contact = contact,
-                    latitude = if (latitude != 0.0) latitude else 0.0,
-                    longitude = if (longitude != 0.0) longitude else 0.0
+                    latitude = latitude,
+                    longitude = longitude
                 )
                 
                 if (localImageUriString != null) {
@@ -99,6 +101,7 @@ class MainActivity : AppCompatActivity() {
         val fabAdd = findViewById<FloatingActionButton>(R.id.fabAdd)
         val etSearch = findViewById<EditText>(R.id.etSearch)
         val btnLogout = findViewById<android.widget.Button>(R.id.btnLogout)
+        progressBar = findViewById(R.id.progressBar)
 
         btnLogout.setOnClickListener {
             auth.signOut()
@@ -167,18 +170,33 @@ class MainActivity : AppCompatActivity() {
     private fun loadInitialData() {
         if (isLoading) return
         isLoading = true
+        progressBar.visibility = android.view.View.VISIBLE
         
-        var query: Query = locationsCollection.orderBy("name")
+        val queryText = currentQuery.lowercase().trim()
+        var query: Query = locationsCollection
         
-        if (currentQuery.isNotEmpty()) {
-            query = query.startAt(currentQuery).endAt(currentQuery + "\uf8ff")
+        if (queryText.isNotEmpty()) {
+            val isNumeric = queryText.toLongOrNull() != null
+            if (isNumeric) {
+                // If it's a number, try to match ID exactly
+                query = query.whereEqualTo("id", queryText.toLong())
+            } else {
+                // Prefix search by lowercase name
+                query = query.orderBy("nameLower")
+                    .startAt(queryText)
+                    .endAt(queryText + "\uf8ff")
+            }
+        } else {
+            query = query.orderBy("name")
         }
         
         query.limit(pageSize).get()
             .addOnSuccessListener { documents ->
                 isLoading = false
+                progressBar.visibility = android.view.View.GONE
                 if (documents.isEmpty) {
                     isLastPage = true
+                    adapter.notifyDataSetChanged()
                     return@addOnSuccessListener
                 }
                 
@@ -196,23 +214,37 @@ class MainActivity : AppCompatActivity() {
             }
             .addOnFailureListener { e ->
                 isLoading = false
+                progressBar.visibility = android.view.View.GONE
                 Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
     }
 
     private fun loadMoreData() {
-        if (isLoading || isLastPage) return
+        if (isLoading || isLastPage || lastVisible == null) return
         isLoading = true
+        progressBar.visibility = android.view.View.VISIBLE
         
-        var query: Query = locationsCollection.orderBy("name")
+        val queryText = currentQuery.lowercase().trim()
+        var query: Query = locationsCollection
         
-        if (currentQuery.isNotEmpty()) {
-            query = query.startAt(currentQuery).endAt(currentQuery + "\uf8ff")
+        if (queryText.isNotEmpty()) {
+            val isNumeric = queryText.toLongOrNull() != null
+            if (isNumeric) {
+                // Paginate exact ID match? (usually only 1 result, but still)
+                query = query.whereEqualTo("id", queryText.toLong())
+            } else {
+                query = query.orderBy("nameLower")
+                    .startAt(queryText)
+                    .endAt(queryText + "\uf8ff")
+            }
+        } else {
+            query = query.orderBy("name")
         }
         
         query.startAfter(lastVisible!!).limit(pageSize).get()
             .addOnSuccessListener { documents ->
                 isLoading = false
+                progressBar.visibility = android.view.View.GONE
                 if (documents.isEmpty) {
                     isLastPage = true
                     return@addOnSuccessListener
@@ -232,6 +264,7 @@ class MainActivity : AppCompatActivity() {
             }
             .addOnFailureListener { e ->
                 isLoading = false
+                progressBar.visibility = android.view.View.GONE
                 Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
     }

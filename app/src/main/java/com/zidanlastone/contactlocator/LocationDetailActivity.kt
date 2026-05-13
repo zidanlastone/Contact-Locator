@@ -42,8 +42,8 @@ class LocationDetailActivity : AppCompatActivity() {
                     address = address,
                     contact = contact,
                     imageUri = imageUri,
-                    latitude = if (latitude != 0.0) latitude else null,
-                    longitude = if (longitude != 0.0) longitude else null
+                    latitude = if (latitude != 0.0) latitude else 0.0,
+                    longitude = if (longitude != 0.0) longitude else 0.0
                 )
                 updateInFirestore(updatedItem)
             }

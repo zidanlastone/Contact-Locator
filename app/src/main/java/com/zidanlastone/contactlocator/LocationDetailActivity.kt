@@ -84,7 +84,7 @@ class LocationDetailActivity : AppCompatActivity() {
                 ivPicture.visibility = View.GONE
             }
 
-            tvId.text = getString(R.string.label_id) + item.id
+            tvId.text   = getString(R.string.label_id) + item.id
             tvName.text = getString(R.string.label_name) + item.name
             
             if (!item.address.isNullOrEmpty()) {

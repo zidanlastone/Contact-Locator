@@ -7,7 +7,7 @@
     <string name="hint_maps_link">Google Maps Link</string>
     <string name="btn_add">Add Contact</string>
     <string name="btn_open_maps">Open Maps</string>
-    <string name="label_id">ID: </string>
+    <string name="label_id">ID:   </string>
     <string name="label_name">Name: </string>
     <string name="label_address">Address: </string>
     <string name="label_contact">Contact: </string>

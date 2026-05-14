@@ -14,6 +14,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
             android:orientation="vertical"
             android:padding="16dp">
 
@@ -21,36 +22,40 @@
                 android:id="@+id/tvDetailId"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:selectAllOnFocus="true"
+                android:textIsSelectable="true"
                 android:textSize="18sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tvDetailName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="20sp"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="8dp"
+                android:selectAllOnFocus="true"
+                android:textIsSelectable="true"
+                android:textSize="20sp" />
 
             <TextView
                 android:id="@+id/tvDetailAddress"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="16sp"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="8dp"
+                android:textSize="16sp" />
 
             <TextView
                 android:id="@+id/tvDetailContact"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="16sp"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="16dp"
+                android:textSize="16sp" />
 
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="#DDD"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="16dp"
+                android:background="#DDD" />
 
             <TextView
                 android:id="@+id/tvDetailLatitude"
@@ -82,18 +87,18 @@
 
             <Button
                 android:id="@+id/btnDetailWhatsApp"
+                style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                android:text="@string/btn_whatsapp"
-                style="@style/Widget.Material3.Button.OutlinedButton" />
+                android:text="@string/btn_whatsapp" />
 
             <Button
                 android:id="@+id/btnDetailEdit"
+                style="@style/Widget.Material3.Button.TonalButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/btn_edit"
-                style="@style/Widget.Material3.Button.TonalButton" />
+                android:text="@string/btn_edit" />
 
         </LinearLayout>
     </ScrollView>
